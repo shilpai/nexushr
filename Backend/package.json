@@ -1,0 +1,33 @@
+{
+  "name": "nexushr-backend",
+  "version": "1.0.0",
+  "description": "Modular Monolithic HRMS & Employee Management API with Node.js and MySQL",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "db:init": "node src/database/initDb.js",
+    "db:seed": "node src/database/seed.js"
+  },
+  "keywords": [
+    "hrms",
+    "employee-management",
+    "modular-monolith",
+    "mysql",
+    "express",
+    "nodejs"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "morgan": "^1.10.0",
+    "mysql2": "^3.12.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
