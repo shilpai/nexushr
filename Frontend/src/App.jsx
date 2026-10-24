@@ -12,6 +12,7 @@ import AnalyticsView from './components/AnalyticsView';
 import ConfirmDialog from './components/ConfirmDialog';
 import Toast from './components/Toast';
 
+import { ApiClient } from './services/api';
 import { initialEmployees } from './data/initialEmployees';
 import './styles/App.css';
 
@@ -33,6 +34,10 @@ export default function App() {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
+  // Cloud DB status & Loading
+  const [dbStatus, setDbStatus] = useState('connecting'); // 'online' | 'connecting' | 'offline'
+  const [loading, setLoading] = useState(true);
+
   // Employees data
   const [employees, setEmployees] = useState(() => {
     try {
@@ -49,7 +54,33 @@ export default function App() {
     return initialEmployees;
   });
 
-  // Save to localStorage on change
+  // Fetch employees from Live Backend on mount
+  useEffect(() => {
+    let isMounted = true;
+    async function loadFromCloud() {
+      try {
+        setDbStatus('connecting');
+        const data = await ApiClient.employees.getAll();
+        if (isMounted) {
+          if (Array.isArray(data) && data.length > 0) {
+            setEmployees(data);
+          }
+          setDbStatus('online');
+        }
+      } catch (err) {
+        console.warn('Cloud DB offline or connecting failed, using local backup:', err);
+        if (isMounted) {
+          setDbStatus('offline');
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    loadFromCloud();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Save to localStorage on change as reliable offline backup
   useEffect(() => {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(employees));
@@ -101,19 +132,42 @@ export default function App() {
     setIsModalOpen(true);
   };
 
-  const handleSaveEmployee = (savedData) => {
+  const handleSaveEmployee = async (savedData) => {
     if (editingEmployee) {
-      // Update
+      // Optimistic update
       setEmployees(prev => prev.map(e => e.id === savedData.id ? savedData : e));
-      showToast(`Updated record for ${savedData.name}`, 'success');
-      // If we are currently viewing this employee in the detail modal, update it
       if (viewingEmployee && viewingEmployee.id === savedData.id) {
         setViewingEmployee(savedData);
       }
+      showToast(`Saving changes for ${savedData.name}...`, 'info');
+
+      try {
+        const updated = await ApiClient.employees.update(savedData.id, savedData);
+        if (updated) {
+          setEmployees(prev => prev.map(e => e.id === savedData.id ? updated : e));
+          if (viewingEmployee && viewingEmployee.id === savedData.id) {
+            setViewingEmployee(updated);
+          }
+        }
+        setDbStatus('online');
+        showToast(`Saved ${savedData.name} to Cloud DB!`, 'success');
+      } catch (err) {
+        console.error('Cloud update error:', err);
+        showToast(`Saved locally (Cloud DB: ${err.message})`, 'info');
+      }
     } else {
-      // Add
-      setEmployees(prev => [savedData, ...prev]);
-      showToast(`Added ${savedData.name} to the workforce directory!`, 'success');
+      // Create new employee
+      showToast(`Adding ${savedData.name} to Cloud DB...`, 'info');
+      try {
+        const created = await ApiClient.employees.create(savedData);
+        setEmployees(prev => [created || savedData, ...prev]);
+        setDbStatus('online');
+        showToast(`Added ${savedData.name} to TiDB Cloud!`, 'success');
+      } catch (err) {
+        console.error('Cloud create error:', err);
+        setEmployees(prev => [savedData, ...prev]);
+        showToast(`Added locally (Cloud DB: ${err.message})`, 'info');
+      }
     }
   };
 
@@ -121,14 +175,22 @@ export default function App() {
     setConfirmDialog({
       isOpen: true,
       title: 'Delete Employee Record',
-      message: `Are you sure you want to permanently delete the profile of "${employee.name}" (${employee.id})? This action cannot be reversed.`,
-      onConfirm: () => {
+      message: `Are you sure you want to permanently delete the profile of "${employee.name}" (${employee.id})? This will delete the record from TiDB Cloud MySQL.`,
+      onConfirm: async () => {
         setEmployees(prev => prev.filter(e => e.id !== employee.id));
         setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
         if (viewingEmployee?.id === employee.id) {
           setViewingEmployee(null);
         }
-        showToast(`Employee record for ${employee.name} was removed.`, 'info');
+        showToast(`Deleting ${employee.name} from Cloud DB...`, 'info');
+        try {
+          await ApiClient.employees.delete(employee.id);
+          setDbStatus('online');
+          showToast(`Removed ${employee.name} from TiDB Cloud.`, 'success');
+        } catch (err) {
+          console.error('Cloud delete error:', err);
+          showToast(`Deleted locally (${err.message})`, 'info');
+        }
       }
     });
   };
@@ -137,23 +199,37 @@ export default function App() {
     setConfirmDialog({
       isOpen: true,
       title: `Delete ${ids.length} Employee Records`,
-      message: `Are you sure you want to delete ${ids.length} selected employee profiles? This action cannot be undone.`,
-      onConfirm: () => {
+      message: `Are you sure you want to delete ${ids.length} selected employee profiles? This will remove them from TiDB Cloud MySQL.`,
+      onConfirm: async () => {
         setEmployees(prev => prev.filter(e => !ids.includes(e.id)));
         setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
         if (clearSelectionCallback) clearSelectionCallback();
-        showToast(`Deleted ${ids.length} employee records.`, 'info');
+        showToast(`Deleting ${ids.length} records from Cloud DB...`, 'info');
+        try {
+          await ApiClient.employees.bulkDelete(ids);
+          setDbStatus('online');
+          showToast(`Deleted ${ids.length} records from TiDB Cloud.`, 'success');
+        } catch (err) {
+          console.error('Cloud bulk delete error:', err);
+          showToast(`Deleted locally (${err.message})`, 'info');
+        }
       }
     });
   };
 
-  const handleUpdateEmployeeStatus = (employeeId, newStatus) => {
+  const handleUpdateEmployeeStatus = async (employeeId, newStatus) => {
     setEmployees(prev => prev.map(e => {
       if (e.id === employeeId) {
         return { ...e, status: newStatus };
       }
       return e;
     }));
+    try {
+      await ApiClient.employees.update(employeeId, { status: newStatus });
+      setDbStatus('online');
+    } catch (err) {
+      console.warn('Status update sync error:', err);
+    }
   };
 
   const handleResetData = () => {
@@ -240,6 +316,7 @@ export default function App() {
           onAddEmployee={handleOpenAddModal}
           onExportCSV={handleExportCSV}
           onResetData={handleResetData}
+          dbStatus={dbStatus}
         />
 
         <main className="page-container">

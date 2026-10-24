@@ -7,7 +7,8 @@ export default function Navbar({
   setSearchTerm, 
   onAddEmployee, 
   onExportCSV,
-  onResetData 
+  onResetData,
+  dbStatus = 'online'
 }) {
   const getTabTitle = () => {
     switch (activeTab) {
@@ -25,6 +26,15 @@ export default function Navbar({
     <header className="top-navbar">
       <div className="navbar-left">
         <h1 className="navbar-title">{getTabTitle()}</h1>
+        <div 
+          className={`db-status-pill ${dbStatus === 'online' ? 'status-online' : dbStatus === 'connecting' ? 'status-connecting' : 'status-offline'}`}
+          title={dbStatus === 'online' ? 'Connected to live TiDB Cloud Serverless MySQL on Vercel' : 'Running in local cache mode'}
+        >
+          <span className="status-dot"></span>
+          <span className="status-text">
+            {dbStatus === 'online' ? 'TiDB Cloud Live' : dbStatus === 'connecting' ? 'Connecting DB...' : 'Local Cache'}
+          </span>
+        </div>
       </div>
 
       <div className="search-box">

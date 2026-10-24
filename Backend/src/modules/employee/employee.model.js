@@ -128,7 +128,7 @@ export class EmployeeModel {
         employeeData.status || 'Active',
         employeeData.location || null,
         employeeData.salary || 0.00,
-        employeeData.joining_date || new Date(),
+        employeeData.joining_date || employeeData.joiningDate || new Date(),
         employeeData.avatar || null,
         employeeData.manager_name || employeeData.manager || null,
         employeeData.rating || 4.5,
