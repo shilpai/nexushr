@@ -9,10 +9,19 @@ import {
   Sun, 
   Moon, 
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  LogOut
 } from 'lucide-react';
 
-export default function Sidebar({ activeTab, setActiveTab, theme, toggleTheme, employeeCount }) {
+export default function Sidebar({ 
+  activeTab, 
+  setActiveTab, 
+  theme, 
+  toggleTheme, 
+  employeeCount,
+  currentUser,
+  onLogout 
+}) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'employees', label: 'Employees', icon: Users, badge: employeeCount },
@@ -90,6 +99,21 @@ export default function Sidebar({ activeTab, setActiveTab, theme, toggleTheme, e
               <span>Dark Mode</span>
             </>
           )}
+        </button>
+
+        <button 
+          className="theme-toggle-btn"
+          onClick={onLogout}
+          title="Sign out of NexusHR"
+          id="sidebar-logout-button"
+          style={{ 
+            marginTop: '8px', 
+            borderColor: 'rgba(239, 68, 68, 0.25)', 
+            color: '#ef4444' 
+          }}
+        >
+          <LogOut size={16} />
+          <span>Sign Out</span>
         </button>
       </div>
     </aside>

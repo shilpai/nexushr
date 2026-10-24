@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Plus, Download, RotateCcw, X } from 'lucide-react';
+import { Search, Plus, Download, RotateCcw, X, LogOut } from 'lucide-react';
 
 export default function Navbar({ 
   activeTab, 
@@ -8,7 +8,9 @@ export default function Navbar({
   onAddEmployee, 
   onExportCSV,
   onResetData,
-  dbStatus = 'online'
+  dbStatus = 'online',
+  currentUser,
+  onLogout
 }) {
   const getTabTitle = () => {
     switch (activeTab) {
@@ -87,15 +89,24 @@ export default function Navbar({
           <span>Add Employee</span>
         </button>
 
-        <div className="admin-badge">
+        <div 
+          className="admin-badge" 
+          onClick={onLogout}
+          title="Click to Sign Out"
+          style={{ cursor: 'pointer' }}
+          id="navbar-user-profile"
+        >
           <img 
-            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&h=80&q=80" 
-            alt="Admin" 
+            src={currentUser?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&h=80&q=80"} 
+            alt={currentUser?.name || "Admin"} 
             className="admin-avatar" 
           />
           <div className="admin-info">
-            <span className="admin-name">Admin Portal</span>
-            <span className="admin-role">Super Admin</span>
+            <span className="admin-name">{currentUser?.name || 'Admin Portal'}</span>
+            <span className="admin-role" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span>{currentUser?.role || 'Super Admin'}</span>
+              <LogOut size={11} style={{ opacity: 0.6 }} />
+            </span>
           </div>
         </div>
       </div>

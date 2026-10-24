@@ -11,6 +11,7 @@ import PayrollView from './components/PayrollView';
 import AnalyticsView from './components/AnalyticsView';
 import ConfirmDialog from './components/ConfirmDialog';
 import Toast from './components/Toast';
+import LoginPage from './components/LoginPage';
 
 import { ApiClient } from './services/api';
 import { initialEmployees } from './data/initialEmployees';
@@ -18,6 +19,7 @@ import './styles/App.css';
 
 const LOCAL_STORAGE_KEY = 'nexushr_employees_v1';
 const THEME_STORAGE_KEY = 'nexushr_theme_v1';
+const AUTH_STORAGE_KEY = 'nexushr_user_v1';
 
 export default function App() {
   // Theme management
@@ -32,6 +34,43 @@ export default function App() {
 
   const toggleTheme = () => {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  // User Authentication State
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Error loading user session:', e);
+    }
+    return null; // Show login page if not authenticated
+  });
+
+  const handleLogin = (user, rememberMe = true) => {
+    setCurrentUser(user);
+    if (rememberMe) {
+      try {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+      } catch (e) {
+        console.error('Error saving session:', e);
+      }
+    }
+    showToast(`Welcome back, ${user.name}!`, 'success');
+  };
+
+  const handleLogout = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Sign Out Confirmation',
+      message: 'Are you sure you want to end your current session and sign out?',
+      onConfirm: () => {
+        setCurrentUser(null);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+        showToast('You have signed out successfully.', 'info');
+      }
+    });
   };
 
   // Cloud DB status & Loading
@@ -296,6 +335,27 @@ export default function App() {
     setActiveTab('employees');
   };
 
+  // If user is not logged in, render enterprise LoginPage
+  if (!currentUser) {
+    return (
+      <>
+        <LoginPage 
+          onLogin={handleLogin} 
+          theme={theme} 
+          toggleTheme={toggleTheme} 
+        />
+        <Toast toasts={toasts} onDismiss={dismissToast} />
+        <ConfirmDialog 
+          isOpen={confirmDialog.isOpen}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} })}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="app-container">
       {/* Left Navigation Sidebar */}
@@ -303,8 +363,10 @@ export default function App() {
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
         theme={theme} 
-        toggleTheme={toggleTheme}
+        toggleTheme={toggleTheme} 
         employeeCount={employees.length}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
       {/* Main App Canvas */}
@@ -317,6 +379,8 @@ export default function App() {
           onExportCSV={handleExportCSV}
           onResetData={handleResetData}
           dbStatus={dbStatus}
+          currentUser={currentUser}
+          onLogout={handleLogout}
         />
 
         <main className="page-container">
